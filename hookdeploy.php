@@ -99,7 +99,8 @@ if(is_dir($p[$project_name]['git_dir'])) {
     if($p[$project_name]['run_composer'] || $p[$project_name]['run_npm'] || $p[$project_name]['run_gulp'] || $p[$project_name]['run_bower']) {
         $changes = shell_exec("{$g['git']} show --name-only --diff-filter=MA --pretty=format:%b HEAD 2>&1");
         $changed_files = explode("\n", trim($changes));
-        $o[] = $changed_files;
+        //it might be truncated by bitbucket webhook
+        $o[] = 'changed files: ' . PHP_EOL . trim($changes);
     }
 
     //composer
@@ -172,4 +173,4 @@ if(is_dir($p[$project_name]['git_dir'])) {
     }
 }
 
-echo print_r($o, true) . PHP_EOL;
+echo implode(PHP_EOL, $o) . PHP_EOL;
