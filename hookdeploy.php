@@ -12,6 +12,7 @@
 $g = [
     'git' => 'git',
     'composer' => 'composer',
+    'composer_home' => '/usr/local/bin/', //composer home env var
     'npm' => 'npm',
     'gulp' => 'gulp',
     //'bower' => 'bower' //not, bower is running through gulp
@@ -46,7 +47,7 @@ if(empty($payload->push->changes)) {
     die('No changes');
 }
 
-if($payload->push->changes[0]->new->type != 'branch') {
+if(empty($payload->push->changes[0]->new) || $payload->push->changes[0]->new->type != 'branch') {
     die('No changes on branches');
 }
 
@@ -97,7 +98,8 @@ if(is_dir($p[$project_name]['git_dir'])) {
 
     //compute changes if any of the post commands need to be executed
     if($p[$project_name]['run_composer'] || $p[$project_name]['run_npm'] || $p[$project_name]['run_gulp'] || $p[$project_name]['run_bower']) {
-        $changes = shell_exec("{$g['git']} show --name-only --diff-filter=MA --pretty=format:%b HEAD 2>&1");
+        //Compare the version before the last commit and the last commit.
+        $changes = shell_exec("{$g['git']} diff --diff-filter=M --name-only HEAD^ HEAD 2>&1");
         $changed_files = explode("\n", trim($changes));
         //it might be truncated by bitbucket webhook
         $o[] = 'changed files: ' . PHP_EOL . trim($changes);
@@ -116,9 +118,12 @@ if(is_dir($p[$project_name]['git_dir'])) {
 
 
         if($run_composer) {
+            //set needed env var for composer
+            putenv("COMPOSER_HOME={$g['composer_home']}");
+
             //needs to run on background
-            $o[] = "running background command: (cd {$p[$project_name]['branches'][$branch_name]} && {$g['composer']} install -q --no-progress)";
-            shell_exec("(cd \"{$p[$project_name]['branches'][$branch_name]}\" && {$g['composer']} install -q --no-progress) > /dev/null 2>&1 &");
+            $o[] = "running background command: {$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install -q";
+            shell_exec("{$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install -q > /dev/null 2>&1");
         }
     }
 
@@ -154,21 +159,24 @@ if(is_dir($p[$project_name]['git_dir'])) {
     //check combinations of changes
     //1. npm install, 2. bower install, 3. gulp [task]
 
+    //cd to the working dir
+    chdir($p[$project_name]['branches'][$branch_name]);
+
     if($run_npm && $run_bower) {
         //needs to run on background
-        $o[] = "running background command: (cd {$p[$project_name]['branches'][$branch_name]} && {$g['npm']} install && {$g['gulp']} {$p[$project_name]['bower_task']})";
-        shell_exec("(cd \"{$p[$project_name]['branches'][$branch_name]}\" && {$g['npm']} install && {$g['gulp']} {$p[$project_name]['bower_task']}) > /dev/null 2>&1 &");
+        $o[] = "running background command: ({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['bower_task']})";
+        shell_exec("({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['bower_task']}) > /dev/null 2>&1 &");
     } else {
         if($run_npm) {
-            $o[] = "running background command: (cd {$p[$project_name]['branches'][$branch_name]} && {$g['npm']} install && {$g['gulp']} {$p[$project_name]['gulp_task']})";
-            shell_exec("(cd \"{$p[$project_name]['branches'][$branch_name]}\" && {$g['npm']} install && {$g['gulp']} {$p[$project_name]['gulp_task']}) > /dev/null 2>&1 &");
+            $o[] = "running background command: ({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']})";
+            shell_exec("({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']}) > /dev/null 2>&1 &");
         } elseif($run_bower) {
-            $o[] = "running background command: (cd {$p[$project_name]['branches'][$branch_name]} && {$g['gulp']} {$p[$project_name]['bower_task']})";
-            shell_exec("(cd \"{$p[$project_name]['branches'][$branch_name]}\" && {$g['gulp']} {$p[$project_name]['bower_task']}) > /dev/null 2>&1 &");
+            $o[] = "running background command: {$g['gulp']} {$p[$project_name]['bower_task']}";
+            shell_exec("{$g['gulp']} {$p[$project_name]['bower_task']} > /dev/null 2>&1");
         } elseif($run_gulp) {
             //running in background it might be delayed and bitbucket has a timeout limit
-            $o[] = "running background command: (cd {$p[$project_name]['branches'][$branch_name]} && {$g['gulp']} {$p[$project_name]['gulp_task']})";
-            shell_exec("(cd \"{$p[$project_name]['branches'][$branch_name]}\" && {$g['gulp']} {$p[$project_name]['gulp_task']}) > /dev/null 2>&1 &");
+            $o[] = "running background command: {$g['gulp']} {$p[$project_name]['gulp_task']})";
+            shell_exec("{$g['gulp']} {$p[$project_name]['gulp_task']} > /dev/null 2>&1");
         }
     }
 }
