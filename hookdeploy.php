@@ -8,6 +8,7 @@ $g = [
     'npm' => 'npm',
     'gulp' => 'gulp',
     //'bower' => 'bower' //not, bower is running through gulp
+    'create_dirs' => false, //true: create necessary dirs with mkdir, false you need to create them manually.
 ];
 
 //project config
@@ -89,22 +90,38 @@ if(!isset($p[$project_name]['branches'][$branch_name])) {
     die('No config for this branch: ' . $branch_name);
 }
 
-$git_dir_base = pathinfo($p[$project_name]['git_dir'], PATHINFO_DIRNAME);
-$work_tree_base = pathinfo($p[$project_name]['branches'][$branch_name], PATHINFO_DIRNAME);
+//check necessary directories and permissions
+if($g['create_dirs']) {
+    $git_dir_base = pathinfo($p[$project_name]['git_dir'], PATHINFO_DIRNAME);
+    $work_tree_base = pathinfo($p[$project_name]['branches'][$branch_name], PATHINFO_DIRNAME);
 
-if(!is_writable($git_dir_base)) {
-    die('Make sure www-data has write permission on: ' . $git_dir_base);
-}
+    if (!is_writable($git_dir_base)) {
+        die('Make sure www-data has write permission on: ' . $git_dir_base);
+    }
 
-if(!is_writable($work_tree_base)) {
-    die('Make sure www-data has write permission on: ' . $work_tree_base);
-}
+    if(!is_writable($work_tree_base)) {
+        die('Make sure www-data has write permission on: ' . $work_tree_base);
+    }
 
-if(!is_dir($p[$project_name]['branches'][$branch_name])) {
-    if(!mkdir($p[$project_name]['branches'][$branch_name])) {
-        die('Cannot create dir: ' . $p[$project_name]['branches'][$branch_name] . ', please check your dir paths.');
+    if(!is_dir($p[$project_name]['branches'][$branch_name])) {
+        if(!mkdir($p[$project_name]['branches'][$branch_name])) {
+            die('Cannot create dir: ' . $p[$project_name]['branches'][$branch_name] . ', please check your dir paths.');
+        }
+    }
+} else {
+    if(!is_dir($p[$project_name]['git_dir'])) {
+        die('git_dir does not exist: ' . $p[$project_name]['git_dir']);
+    }
+
+    if(!is_dir($p[$project_name]['branches'][$branch_name])) {
+        die("the directory for branch {$branch_name} does not exist: " . $p[$project_name]['branches'][$branch_name]);
+    }
+
+    if(!is_writable($p[$project_name]['branches'][$branch_name])) {
+        die('Make sure www-data has write permission on: ' . $p[$project_name]['branches'][$branch_name]);
     }
 }
+
 
 //use an specific private key
 //make sure you have git v2.3.0 or newer
@@ -126,11 +143,18 @@ if(is_dir($p[$project_name]['git_dir'])) {
 
     //compute changes if any of the post commands need to be executed
     if($p[$project_name]['run_composer'] || $p[$project_name]['run_npm'] || $p[$project_name]['run_gulp'] || $p[$project_name]['run_bower']) {
-        //Compare the version before the last commit and the last commit.
-        $changes = shell_exec("{$g['git']} diff --diff-filter=M --name-only HEAD^ HEAD 2>&1");
-        $changed_files = explode("\n", trim($changes));
-        //it might be truncated by bitbucket webhook
-        $o[] = 'changed files: ' . PHP_EOL . trim($changes);
+        if(!empty($payload->push->changes[0]->old)) {
+            $old_commit_hash = $payload->push->changes[0]->old->target->hash;
+            $new_commit_hash = $payload->push->changes[0]->new->target->hash;
+
+            if(!empty($old_commit_hash) && !empty($new_commit_hash)) {
+                //Compare the version between the old commit and the new commit.
+                $changes = shell_exec("{$g['git']} --no-pager diff --diff-filter=M --name-only {$old_commit_hash} {$new_commit_hash} 2>&1");
+                $changed_files = explode("\n", trim($changes));
+                //it might be truncated by bitbucket webhook
+                $o[] = 'changed files: ' . PHP_EOL . trim($changes);
+            }
+        }
     }
 
     //composer
