@@ -6,13 +6,15 @@ hookdeploy is a php script that deploys a bitbucket git repository to a web serv
 
 This creates a hookdeploy directory in the current dir.
 ```sh
-composer create-project avirdz/hookdeploy=v1.0.0-alpha
+composer create-project avirdz/hookdeploy=dev-master
 ```
 
 This installs the files in the current dir.
 ```sh
-composer create-project avirdz/hookdeploy=v1.0.0-alpha
+composer create-project avirdz/hookdeploy=dev-master
 ```
+
+Then remove .git dir.
 
 ### Requirements
 
