@@ -1,13 +1,5 @@
 <?php
 
-#Test your private key and add bitbucket to known_hosts
-#run ssh -i "yourkey" -T git@bitbucket.org
-#you can test it emulating www-data user
-#sudo -u www-data -H php hookdeploy.php
-#make sure www-data has write permissions to its home dir, npm creates a .npm dir in user's home path
-#npm permissions troubleshooting https://docs.npmjs.com/getting-started/fixing-npm-permissions
-//@todo: bower is taking too much time
-
 //global config
 $g = [
     'git' => 'git',
@@ -37,7 +29,43 @@ $p = [
     ],
 ];
 
-$payload = json_decode(file_get_contents('php://input'));
+$run_custom = false;
+
+if(!empty($argv)) {
+    if(isset($argv[1]) && $argv[1] == 'test') {
+        if(isset($argv[2])) {
+            if(!is_file($argv[2])) {
+                die('Invalid file: ' . $argv[2]);
+            }
+            $payload = json_decode(file_get_contents($argv[2]));
+        } else {
+            $payload = json_decode(file_get_contents(__DIR__ . '/payload.json'));
+        }
+        $run_custom = true;
+    } elseif(isset($argv[1]) && $argv[1] == 'run') {
+        $payload = json_decode(file_get_contents(__DIR__ . '/payload.json'));
+        if(isset($argv[2])) {
+            $payload->push->changes[0]->new->repository->full_name = $argv[2];
+        } else {
+            $projects = array_keys($p);
+            $payload->push->changes[0]->new->repository->full_name = $projects[0];
+        }
+
+        if(isset($argv[3])) {
+            $payload->push->changes[0]->new->name = $argv[3];
+        } else {
+            if(isset($p[$payload->push->changes[0]->new->repository->full_name])) {
+                $branches_list = array_keys($p[$payload->push->changes[0]->new->repository->full_name]['branches']);
+                $payload->push->changes[0]->new->name = $branches_list[0];
+            }
+        }
+        $run_custom = true;
+    }
+}
+
+if(!$run_custom) {
+    $payload = json_decode(file_get_contents('php://input'));
+}
 
 if(empty($payload)) {
     die('No payload');
@@ -162,15 +190,20 @@ if(is_dir($p[$project_name]['git_dir'])) {
     //cd to the working dir
     chdir($p[$project_name]['branches'][$branch_name]);
 
-    if($run_npm && $run_bower) {
+    if($run_npm && $run_bower && $run_gulp) {
         //needs to run on background
         $o[] = "running background command: ({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['bower_task']})";
         shell_exec("({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['bower_task']}) > /dev/null 2>&1 &");
     } else {
         if($run_npm) {
-            $o[] = "running background command: ({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']})";
-            shell_exec("({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']}) > /dev/null 2>&1 &");
-        } elseif($run_bower) {
+            if($run_gulp) {
+                $o[] = "running background command: ({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']})";
+                shell_exec("({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']}) > /dev/null 2>&1 &");
+            } else {
+                $o[] = "running background command: {$g['npm']} install -q";
+                shell_exec("{$g['npm']} install -q > /dev/null 2>&1");
+            }
+        } elseif($run_bower && $run_gulp) {
             $o[] = "running background command: {$g['gulp']} {$p[$project_name]['bower_task']}";
             shell_exec("{$g['gulp']} {$p[$project_name]['bower_task']} > /dev/null 2>&1");
         } elseif($run_gulp) {
