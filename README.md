@@ -2,6 +2,18 @@
 
 hookdeploy is a php script that deploys a bitbucket git repository to a web server.
 
+### Install with composer
+
+This creates a hookdeploy directory in the current dir.
+```sh
+composer create-project avirdz/hookdeploy=v1.0.0-alpha
+```
+
+This installs the files in the current dir.
+```sh
+composer create-project avirdz/hookdeploy=v1.0.0-alpha
+```
+
 ### Requirements
 
  - You need ssh access to your bitbucket account.
@@ -70,7 +82,7 @@ $payload = json_decode('full_path_to_json_payload');
 ### Full Example
 
 1. Install hookdeploy on the web server.
-2. Configure projects, global config is ready but if you need something different then maken your changes.
+2. Configure projects, global config is ready but if you need something different then make your changes.
 ```php
 $p = [
     'avirdz/shittyProject' => [

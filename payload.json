@@ -1,0 +1,15 @@
+{
+  "push": {
+    "changes": [
+      {
+        "new": {
+          "type": "branch",
+          "name": "master",
+          "repository": {
+            "full_name": "myuser/myproject"
+          }
+        }
+      }
+    ]
+  }
+}
