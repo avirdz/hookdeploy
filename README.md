@@ -11,7 +11,7 @@ composer create-project avirdz/hookdeploy=dev-master
 
 This installs the files in the current dir.
 ```sh
-composer create-project avirdz/hookdeploy=dev-master
+composer create-project avirdz/hookdeploy=dev-master .
 ```
 
 Then remove .git dir.
