@@ -9,20 +9,8 @@
             "email": "avirdz@gmail.com"
         }
     ],
-    "require": {},
-    "repositories": [
-        {
-            "type": "package",
-            "package": {
-                "name": "avirdz/hookdeploy",
-                "version": "dev-1.0.0",
-                "source": {
-                    "url": "git://github.com/avirdz/hookdeploy.git",
-                    "type": "git",
-                    "reference": "master"
-                },
-                "autoload": {}
-            }
-        }
-    ]
+    "require": {
+        "php": ">=5.3.0",
+        "git": ">=2.3.0"
+    }
 }
