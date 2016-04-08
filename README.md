@@ -66,17 +66,29 @@ Test your private key and add bitbucket to known_hosts
 ssh -i ~/.ssh/myPrivateKey -T git@bitbucket.org
 ```
 
-If you want to test the script, run it emulating www-data
+If you want to test the script, run it emulating www-data, test with the provided payload.json file (you need to configure the full-name key by your project full name)
 ```sh
-sudo -u www-data -H php hookdeploy.php
+sudo -u www-data -H php hookdeploy.php test
 ```
-You need a payload.json to run the test, grab it from bitbucket requests save it on payload.json and replace this line
-```php
-$payload = json_decode(file_get_contents('php://input'));
+
+Your custom payload.json
+```sh
+sudo -u www-data -H php hookdeploy.php test ~/mypayload.json
 ```
-by this one
-```php
-$payload = json_decode('full_path_to_json_payload');
+
+Run the script with your provided config, this runs your first project and the first branch configured on the $p var
+```sh
+sudo -u www-data -H php hookdeploy.php run
+```
+
+If you want to run a different project use this.
+```sh
+sudo -u www-data -H php hookdeploy.php run myuser/myotherproject
+```
+
+If you want to run with different branch.
+```sh
+sudo -u www-data -H php hookdeploy.php run myuser/myproject develop
 ```
 
 - npm creates a .npm config dir on the user's home, I tested on /var/www since www-data has write permissions everything is ok, but in some cases this results on an EACCESS error by npm.
@@ -106,9 +118,11 @@ $p = [
 ```
 3. www-data home is /var/www
 4. www-data has write permissions to /var/www
-5. Run directly to check if it's working, remember to add your payload.json
+5. Run directly to check if it's working
 ```sh
-sudo -u www-data -H php hookdeploy.php
+sudo -u www-data -H php hookdeploy.php test
+OR
+sudo -u www-data -H php hookdeploy.php run
 ```
 6. If everything is Ok, you have the git_dir created, and branches dirs created, also if no vendor, node_modules or bower_components exist they will be created, (only if config is true)
 
