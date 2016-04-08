@@ -1,0 +1,28 @@
+{
+    "name": "avirdz/hookdeploy",
+    "description": "PHP script to deploy a git repository to web server",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jesus Aviles",
+            "email": "avirdz@gmail.com"
+        }
+    ],
+    "require": {},
+    "repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "avirdz/hookdeploy",
+                "version": "dev-1.0.0",
+                "source": {
+                    "url": "git://github.com/avirdz/hookdeploy.git",
+                    "type": "git",
+                    "reference": "master"
+                },
+                "autoload": {}
+            }
+        }
+    ]
+}
