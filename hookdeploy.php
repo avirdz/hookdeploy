@@ -141,6 +141,7 @@ if(is_dir($p[$project_name]['git_dir'])) {
     $o[] = shell_exec("{$g['git']} fetch --all 2>&1");
     $o[] = shell_exec("{$g['git']} checkout -f origin/{$branch_name} 2>&1");
 
+    $changed_files = [];
     //compute changes if any of the post commands need to be executed
     if($p[$project_name]['run_composer'] || $p[$project_name]['run_npm'] || $p[$project_name]['run_gulp'] || $p[$project_name]['run_bower']) {
         if(!empty($payload->push->changes[0]->old)) {
