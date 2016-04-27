@@ -7,8 +7,14 @@ $g = [
     'composer_home' => '/usr/local/bin/', //composer home env var
     'npm' => 'npm',
     'gulp' => 'gulp',
-    //'bower' => 'bower' //not, bower is running through gulp
+    'bower' => 'bower',
     'create_dirs' => false, //true: create necessary dirs with mkdir, false you need to create them manually.
+    'hookdeploy_settings_dir' => '/var/www/.hookdeploy_settings',
+    'http_test' => false, //can make a test request from the browser, ip restriction must be disabled
+    'bg_command' => ' > /dev/null 2>&1',
+    'bg_multiple' => ' > /dev/null 2>&1 &',
+    'quiet' => ' -q',
+    'debug' => null,
 ];
 
 //project config
@@ -31,7 +37,11 @@ $p = [
 ];
 
 $run_custom = false;
+$run_composer = false;
+$run_npm = false;
+$run_bower = false;
 
+//test deploy from command line
 if(!empty($argv)) {
     if(isset($argv[1]) && $argv[1] == 'test') {
         if(isset($argv[2])) {
@@ -62,6 +72,39 @@ if(!empty($argv)) {
         }
         $run_custom = true;
     }
+
+//test deploy from browser
+} elseif(isset($_GET['run']) && $g['http_test']) {
+    $payload = json_decode(file_get_contents(__DIR__ . '/payload.json'));
+    if(isset($_GET['r'])) {
+        $payload->push->changes[0]->new->repository->full_name = $_GET['r'];
+    } else {
+        $projects = array_keys($p);
+        $payload->push->changes[0]->new->repository->full_name = $projects[0];
+    }
+
+    if(isset($_GET['b'])) {
+        $payload->push->changes[0]->new->name = $_GET['b'];
+    } else {
+        if(isset($p[$payload->push->changes[0]->new->repository->full_name])) {
+            $branches_list = array_keys($p[$payload->push->changes[0]->new->repository->full_name]['branches']);
+            $payload->push->changes[0]->new->name = $branches_list[0];
+        }
+    }
+    $run_custom = true;
+
+    $run_composer = strpos($_GET['run'], 'composer') === false ? false : true;
+    $run_npm = strpos($_GET['run'], 'npm') === false ? false : true;
+    $run_bower = strpos($_GET['run'], 'bower') === false ? false : true;
+    if(isset($_GET['bg'])) {
+        $g['bg_command'] = ' 2>&1';
+        $g['bg_multiple'] = ' 2>&1 &';
+        $g['quiet'] = null;
+        $g['debug'] = ' --verbose';
+    }
+} else {
+    //bower continuous integration
+    putenv("CI=true");
 }
 
 if(!$run_custom) {
@@ -103,9 +146,24 @@ if($g['create_dirs']) {
         die('Make sure www-data has write permission on: ' . $work_tree_base);
     }
 
+
     if(!is_dir($p[$project_name]['branches'][$branch_name])) {
         if(!mkdir($p[$project_name]['branches'][$branch_name])) {
             die('Cannot create dir: ' . $p[$project_name]['branches'][$branch_name] . ', please check your dir paths.');
+        }
+    }
+
+    if(!empty($g['hookdeploy_settings_dir'])) {
+        $settings_dir = pathinfo($g['hookdeploy_settings_dir'], PATHINFO_DIRNAME);
+
+        if (!is_writable($settings_dir)) {
+            die('Make sure www-data has write permission on: ' . $settings_dir);
+        }
+
+        if(!is_dir($g['hookdeploy_settings_dir'])) {
+            if(!mkdir($g['hookdeploy_settings_dir'])) {
+                die('Cannot create dir: ' . $g['hookdeploy_settings_dir'] . ', please check your dir paths.');
+            }
         }
     }
 } else {
@@ -120,6 +178,18 @@ if($g['create_dirs']) {
     if(!is_writable($p[$project_name]['branches'][$branch_name])) {
         die('Make sure www-data has write permission on: ' . $p[$project_name]['branches'][$branch_name]);
     }
+}
+
+if(!empty($g['hookdeploy_settings_dir'])) {
+    if(!is_dir($g['hookdeploy_settings_dir'])) {
+        die('hookdeploy_settings_dir does not exist: ' . $g['hookdeploy_settings_dir']);
+    }
+
+    putenv("COMPOSER_CACHE_DIR={$g['hookdeploy_settings_dir']}/.composer_cache");
+    putenv("NPM_CONFIG_CACHE={$g['hookdeploy_settings_dir']}/.npm_cache");
+    putenv("bower_storage__packages={$g['hookdeploy_settings_dir']}/.bower_packages");
+    putenv("bower_storage__registry={$g['hookdeploy_settings_dir']}/.bower_registry");
+    putenv("bower_storage__links={$g['hookdeploy_settings_dir']}/.bower_links");
 }
 
 
@@ -159,7 +229,6 @@ if(is_dir($p[$project_name]['git_dir'])) {
     }
 
     //composer
-    $run_composer = false;
     if($p[$project_name]['run_composer']) {
         //if vendor dir does not exist, run composer install
         if(!is_dir($p[$project_name]['branches'][$branch_name] . '/vendor')) {
@@ -175,13 +244,12 @@ if(is_dir($p[$project_name]['git_dir'])) {
             putenv("COMPOSER_HOME={$g['composer_home']}");
 
             //needs to run on background
-            $o[] = "running background command: {$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install -q";
-            shell_exec("{$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install -q > /dev/null 2>&1");
+            $o[] = "running background command: {$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install --no-dev{$g['quiet']}{$g['debug']}";
+            $o[] = shell_exec("{$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install --no-dev{$g['quiet']}{$g['debug']}{$g['bg_command']}");
         }
     }
 
     //nmp
-    $run_npm = false;
     if($p[$project_name]['run_npm']) {
         //if node_modules does not exist, run npm install
         if(!is_dir($p[$project_name]['branches'][$branch_name] . '/node_modules')) {
@@ -193,7 +261,7 @@ if(is_dir($p[$project_name]['git_dir'])) {
     }
 
     //bower
-    $run_bower = false;
+
     if($p[$project_name]['run_bower']) {
         //if bower_components does not exist, run bower install
         if(!is_dir($p[$project_name]['branches'][$branch_name] . '/bower_components')) {
@@ -212,31 +280,53 @@ if(is_dir($p[$project_name]['git_dir'])) {
     //check combinations of changes
     //1. npm install, 2. bower install, 3. gulp [task]
 
+    //remove git env vars
+    putenv('GIT_WORK_TREE');
+    putenv('GIT_DIR');
+    putenv('GIT_SSH_COMMAND');
+
+    //setting home for bower
+    if(!empty($g['hookdeploy_settings_dir'])) {
+        putenv("HOME={$g['hookdeploy_settings_dir']}/.bower_home");
+    }
+
     //cd to the working dir
     chdir($p[$project_name]['branches'][$branch_name]);
 
+
     if($run_npm && $run_bower && $run_gulp) {
-        //needs to run on background
-        $o[] = "running background command: ({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['bower_task']})";
-        shell_exec("({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['bower_task']}) > /dev/null 2>&1 &");
+        $o[] = "running background command: ({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']})";
+        $o[] = shell_exec("({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_multiple']}");
     } else {
         if($run_npm) {
             if($run_gulp) {
-                $o[] = "running background command: ({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']})";
-                shell_exec("({$g['npm']} install -q && {$g['gulp']} {$p[$project_name]['gulp_task']}) > /dev/null 2>&1 &");
+                $o[] = "running background command: ({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']})";
+                $o[] = shell_exec("({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_multiple']}");
             } else {
-                $o[] = "running background command: {$g['npm']} install -q";
-                shell_exec("{$g['npm']} install -q > /dev/null 2>&1");
+                $o[] = "running background command: {$g['npm']} install{$g['quiet']}{$g['debug']}";
+                $o[] = shell_exec("{$g['npm']} install{$g['quiet']}{$g['debug']}{$g['bg_command']}");
             }
-        } elseif($run_bower && $run_gulp) {
-            $o[] = "running background command: {$g['gulp']} {$p[$project_name]['bower_task']}";
-            shell_exec("{$g['gulp']} {$p[$project_name]['bower_task']} > /dev/null 2>&1");
+        } elseif($run_bower) {
+            if($run_gulp) {
+                $o[] = "running background command: ({$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']})";
+                $o[] = shell_exec("({$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_multiple']}");
+            } else {
+                $o[] = "running background command: {$g['bower']} install{$g['quiet']}{$g['debug']}";
+                $o[] = shell_exec("{$g['bower']} install{$g['quiet']}{$g['debug']}{$g['bg_command']}");
+            }
         } elseif($run_gulp) {
-            //running in background it might be delayed and bitbucket has a timeout limit
             $o[] = "running background command: {$g['gulp']} {$p[$project_name]['gulp_task']})";
-            shell_exec("{$g['gulp']} {$p[$project_name]['gulp_task']} > /dev/null 2>&1");
+            $o[] = shell_exec("{$g['gulp']} {$p[$project_name]['gulp_task']}{$g['bg_command']}");
         }
     }
 }
 
-echo implode(PHP_EOL, $o) . PHP_EOL;
+if(isset($_GET['run']) && $g['http_test']) {
+    foreach($o as $l) {
+        if(!empty($l)) {
+            echo '<pre>' . $l . '</pre>';
+        }
+    }
+} else {
+    echo implode(PHP_EOL, $o) . PHP_EOL;
+}
