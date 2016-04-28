@@ -4,14 +4,8 @@ hookdeploy is a php script that deploys a bitbucket git repository to a web serv
 
 ### Install with composer
 
-This creates a hookdeploy directory in the current dir.
 ```sh
-composer create-project avirdz/hookdeploy=dev-master
-```
-
-This installs the files in the current dir.
-```sh
-composer create-project avirdz/hookdeploy=dev-master .
+composer create-project avirdz/hookdeploy
 ```
 
 Then remove .git dir.
@@ -31,13 +25,27 @@ Then remove .git dir.
 
 ### Global Config
 
-```
-git => 'git' //git command, you can use the full path
-composer => 'composer' //composer command, you can use the full path
-composer_home => '/usr/local/bin/' //composer home environment
-npm => 'npm' //npm command, you can use the full path
-gulp => 'gulp' //gulp command, you can use the full path
-```
+### Tables
+
+**Markdown Extra** has a special syntax for tables:
+
+key      | Value     | Description
+-------- | --------  | -------------
+git      | (string) default: git |  git command (*)
+composer    | (string) default: composer | composer command (*)
+composer_home | (string) default: /usr/local/bin | composer home env var
+npm | (string) default: npm | npm command (*)
+gulp | (string) default: gulp | gulp command (*)
+bower | (string) default: bower | bower command (*)
+create_dirs | (bool) default: false| automatically create all necessary dirs, needs write permissions on different directories
+hookdeploy_settings_dir | (string) default: /var/www/.hookdeploy_settings | composer, npm, and bower cache folders are created here.
+http_test | (bool) default: false | if true you can make tests on your browser by accessing directly to the script, ip restriction must be disable
+bg_command | (string) default: /dev/null 2>&1  | part of the command to run all other commands in background
+bg_multiple | (string) default: /dev/null 2>&1 &  | run multiple commands in background
+quiet | (string) default: -q | argument to run composer, npm and bower in silent mode
+debug | (string) default: null | argument to run composer, npm and bower in debug mode, this argument is enabled via browser test
+
+(*) avoid permissions errors by setting these commands with full path.
 
 ### Project Config
 
