@@ -49,7 +49,7 @@ debug | (string) default: null | argument to run composer, npm and bower in debu
 Key      | Value     | Description
 -------- | --------  | -------------
 full-project-name | (array) | replace the key name by your full project name |
-- private_key | (string) |  full path foe ssh private key
+- private_key | (string) |  full path for ssh private key
 - git_dir    | (string)  | full path for the local clone repository
 - remote_repository | (string) | remote repository path ssh format
 - branches| (array) | branches to be deployed, ['branch_name' => 'deployment path']
