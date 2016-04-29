@@ -25,11 +25,8 @@ Then remove .git dir.
 
 ### Global Config
 
-### Tables
 
-**Markdown Extra** has a special syntax for tables:
-
-key      | Value     | Description
+Key      | Value     | Description
 -------- | --------  | -------------
 git      | (string) default: git |  git command (*)
 composer    | (string) default: composer | composer command (*)
@@ -49,95 +46,73 @@ debug | (string) default: null | argument to run composer, npm and bower in debu
 
 ### Project Config
 
-```
-full-project-name => [ //config for this project, ex. myusername/myawesomeproject
-    private_key => '~/.ssh/myPrivateKey' //full path for the ssh private key
-    git_dir => '~/bitbucket_repos/myProject' //full path for the local clone repository
-    remote_repository => 'git@bitbucket.org:myuser/myproject.git' //remote repository, ssh format
-    branches => [ // branches to be deployed
-        master => '/var/www/myproject-production' //ex. on this project master is used to deploy the production site
-        develop => '/var/www/myproject-dev' //ex. on this project develop is used to deploy the development site
-    ],
-    run_composer => false //run the composer install command
-    run_npm => false //run the npm install command
-    run_bower => false //run the bower install command
-    run_gulp => false, //run the gulp <task> command
-    gulp_task => 'live' //gulp task to run
-    bower_task => 'live_bower', //gulp task to run bower install, right now bower is running through gulp
-]
-```
+Key      | Value     | Description
+-------- | --------  | -------------
+full-project-name | (array) | replace the key name by your full project name |
+- private_key | (string) |  full path foe ssh private key
+- git_dir    | (string)  | full path for the local clone repository
+- remote_repository | (string) | remote repository path ssh format
+- branches| (array) | branches to be deployed, ['branch_name' => 'deployment path']
+- run_composer | (bool) default: false | run composer install command
+- run_npm | (bool) default: false | run npm install command
+- run_bower | (bool) default: false | run bower install command
+- run_gulp  | (bool) default: false | run gulp task command
+- gulp_task  | (string) default: live | name of the task to run
 
-### Notes
+
+### Testing
 
 Test your private key and add bitbucket to known_hosts
 ```sh
 ssh -i ~/.ssh/myPrivateKey -T git@bitbucket.org
 ```
+#### Testing via browser
+This is the best way to test your setup.
+
+Configure hookdeploy to run script via browser setting the global config "http_test" key to true.
+Then temporally disable ip restriction from the .htaccess
+Enter the URL to hookdeploy script on the browser, use the following GET parameters:
+
+Key      | Value     | Description
+-------- | --------  | -------------
+run | empty\|composer\|npm\|bower\|gulp |   this param is required to be set in order to run the http test, you can set any of the other commands to test, for example: composer (this run the composer install command), you can separate by a comma or any other separator to run multiple commands, example: composer,npm|
+bg | any value | this param is required is you want to disable silent mode on commands, and activate debug output to get more information, if not present commands run normally (background and silent mode)
+r | full project name | project to test, full project name from the \$p config, slash must be encode with "%2F", is this value is not present the script takes the first project from your \$p config
+b | branch name | branch to test, if not present the script takes the first branch from your project config
+
+##### Sample test URL
+```sh
+http://my-host/hookdeploy.php?run=composer&bg=1&r=myuser%2Fmyproject&b=develop
+```
+
+I recommend to  test your setup via browser because you can check if something is wrong.
+
+####Testing by command line
 
 If you want to test the script, run it emulating www-data, test with the provided payload.json file (you need to configure the full-name key by your project full name)
 ```sh
-sudo -u www-data -H php hookdeploy.php test
+sudo -Hu www-data php hookdeploy.php test
 ```
 
 Your custom payload.json
 ```sh
-sudo -u www-data -H php hookdeploy.php test ~/mypayload.json
+sudo -Hu www-data php hookdeploy.php test ~/mypayload.json
 ```
 
 Run the script with your provided config, this runs your first project and the first branch configured on the $p var
 ```sh
-sudo -u www-data -H php hookdeploy.php run
+sudo -Hu www-data php hookdeploy.php run
 ```
 
 If you want to run a different project use this.
 ```sh
-sudo -u www-data -H php hookdeploy.php run myuser/myotherproject
+sudo -Hu www-data php hookdeploy.php run myuser/myotherproject
 ```
 
 If you want to run with different branch.
 ```sh
-sudo -u www-data -H php hookdeploy.php run myuser/myproject develop
+sudo -Hu www-data php hookdeploy.php run myuser/myproject develop
 ```
-
-- npm creates a .npm config dir on the user's home, I tested on /var/www since www-data has write permissions everything is ok, but in some cases this results on an EACCESS error by npm.
-
-### Full Example
-
-1. Install hookdeploy on the web server.
-2. Configure projects, global config is ready but if you need something different then make your changes.
-```php
-$p = [
-    'avirdz/shittyProject' => [
-        'private_key' => '/var/www/.ssh/bitbucket_shittyProject',
-        'git_dir' => '/var/www/bitbucket_repos/shittyProject',
-        'remote_repository' => 'git@bitbucket.org:avirdz/shittyProject.git',
-        'branches' => [
-            'master' => '/var/www/html/shittyproject-production',
-            'develop' => '/var/www/html/shittyproject-dev',
-        ],
-        'run_composer' => true,
-        'run_npm' => true,
-        'run_bower' => true
-        'run_gulp' => true,
-        'gulp_task' => 'live',
-        'bower_task' => 'live_bower',
-    ],
-];
-```
-3. www-data home is /var/www
-4. www-data has write permissions to /var/www
-5. Run directly to check if it's working
-```sh
-sudo -u www-data -H php hookdeploy.php test
-OR
-sudo -u www-data -H php hookdeploy.php run
-```
-6. If everything is Ok, you have the git_dir created, and branches dirs created, also if no vendor, node_modules or bower_components exist they will be created, (only if config is true)
-
-
-### Todos
-
- - Use bower without gulp
 
 License
 ----
