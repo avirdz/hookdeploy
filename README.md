@@ -1,6 +1,6 @@
 # hookdeploy
 
-hookdeploy is a php script that deploys a bitbucket git repository to a web server.
+hookdeploy is a php deployment script for bitbucket git repositories.
 
 ### Install with composer
 
