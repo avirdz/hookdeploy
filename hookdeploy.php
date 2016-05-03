@@ -27,6 +27,11 @@ $p = [
             'master' => '/var/www/myproject-production',
             'develop' => '/var/www/myproject-dev',
         ],
+        'releases' => [
+            'deploy' => false,
+            'prefix' => 'release/',
+            'path' => '/var/www/myproject-latest'
+        ],
         'run_composer' => false,
         'run_npm' => false,
         'run_bower' => false,
@@ -129,14 +134,22 @@ if(!isset($p[$project_name])) {
     die('No config for this project: ' . $project_name);
 }
 
-if(!isset($p[$project_name]['branches'][$branch_name])) {
+if(!isset($p[$project_name]['branches'][$branch_name]) && !$p[$project_name]['releases']['deploy']) {
     die('No config for this branch: ' . $branch_name);
+}
+
+$working_dir = $p[$project_name]['branches'][$branch_name];
+$releaseCheck = strpos($branch_name, $p[$project_name]['releases']['prefix']);
+if($p[$project_name]['releases']['deploy'] && $releaseCheck === false) {
+    die('No config for this branch: ' . $branch_name);
+} elseif($p[$project_name]['releases']['deploy'] && $releaseCheck === 0) {
+    $working_dir = $p[$project_name]['releases']['path'];
 }
 
 //check necessary directories and permissions
 if($g['create_dirs']) {
     $git_dir_base = pathinfo($p[$project_name]['git_dir'], PATHINFO_DIRNAME);
-    $work_tree_base = pathinfo($p[$project_name]['branches'][$branch_name], PATHINFO_DIRNAME);
+    $work_tree_base = pathinfo($working_dir, PATHINFO_DIRNAME);
 
     if (!is_writable($git_dir_base)) {
         die('Make sure www-data has write permission on: ' . $git_dir_base);
@@ -146,12 +159,12 @@ if($g['create_dirs']) {
         die('Make sure www-data has write permission on: ' . $work_tree_base);
     }
 
-
-    if(!is_dir($p[$project_name]['branches'][$branch_name])) {
-        if(!mkdir($p[$project_name]['branches'][$branch_name])) {
-            die('Cannot create dir: ' . $p[$project_name]['branches'][$branch_name] . ', please check your dir paths.');
+    if (!is_dir($working_dir)) {
+        if (!mkdir($working_dir)) {
+            die('Cannot create dir: ' . $working_dir . ', please check your dir paths.');
         }
     }
+
 
     if(!empty($g['hookdeploy_settings_dir'])) {
         $settings_dir = pathinfo($g['hookdeploy_settings_dir'], PATHINFO_DIRNAME);
@@ -171,12 +184,12 @@ if($g['create_dirs']) {
         die('git_dir does not exist: ' . $p[$project_name]['git_dir']);
     }
 
-    if(!is_dir($p[$project_name]['branches'][$branch_name])) {
-        die("the directory for branch {$branch_name} does not exist: " . $p[$project_name]['branches'][$branch_name]);
+    if(!is_dir($working_dir)) {
+        die("the directory for branch {$branch_name} does not exist: " . $working_dir);
     }
 
-    if(!is_writable($p[$project_name]['branches'][$branch_name])) {
-        die('Make sure www-data has write permission on: ' . $p[$project_name]['branches'][$branch_name]);
+    if(!is_writable($working_dir)) {
+        die('Make sure www-data has write permission on: ' . $working_dir);
     }
 }
 
@@ -206,7 +219,7 @@ if(!is_dir($p[$project_name]['git_dir'])) {
 
 if(is_dir($p[$project_name]['git_dir'])) {
     putenv("GIT_DIR={$p[$project_name]['git_dir']}/.git");
-    putenv("GIT_WORK_TREE={$p[$project_name]['branches'][$branch_name]}");
+    putenv("GIT_WORK_TREE={$working_dir}");
 
     $o[] = shell_exec("{$g['git']} fetch --all 2>&1");
     $o[] = shell_exec("{$g['git']} checkout -f origin/{$branch_name} 2>&1");
@@ -231,7 +244,7 @@ if(is_dir($p[$project_name]['git_dir'])) {
     //composer
     if($p[$project_name]['run_composer']) {
         //if vendor dir does not exist, run composer install
-        if(!is_dir($p[$project_name]['branches'][$branch_name] . '/vendor')) {
+        if(!is_dir($working_dir . '/vendor')) {
             $run_composer = true;
         } elseif (in_array('composer.json', $changed_files)) {
             //changes on composer, run composer install
@@ -244,15 +257,15 @@ if(is_dir($p[$project_name]['git_dir'])) {
             putenv("COMPOSER_HOME={$g['composer_home']}");
 
             //needs to run on background
-            $o[] = "running background command: {$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install --no-dev{$g['quiet']}{$g['debug']}";
-            $o[] = shell_exec("{$g['composer']} --working-dir=\"{$p[$project_name]['branches'][$branch_name]}\" install --no-dev{$g['quiet']}{$g['debug']}{$g['bg_command']}");
+            $o[] = "running background command: {$g['composer']} --working-dir=\"{$working_dir}\" install --no-dev{$g['quiet']}{$g['debug']}";
+            $o[] = shell_exec("{$g['composer']} --working-dir=\"{$working_dir}\" install --no-dev{$g['quiet']}{$g['debug']}{$g['bg_command']}");
         }
     }
 
     //nmp
     if($p[$project_name]['run_npm']) {
         //if node_modules does not exist, run npm install
-        if(!is_dir($p[$project_name]['branches'][$branch_name] . '/node_modules')) {
+        if(!is_dir($working_dir . '/node_modules')) {
             $run_npm = true;
         } elseif (in_array('package.json', $changed_files)) {
             //changes on npm, run npm install
@@ -264,7 +277,7 @@ if(is_dir($p[$project_name]['git_dir'])) {
 
     if($p[$project_name]['run_bower']) {
         //if bower_components does not exist, run bower install
-        if(!is_dir($p[$project_name]['branches'][$branch_name] . '/bower_components')) {
+        if(!is_dir($working_dir . '/bower_components')) {
             $run_bower= true;
         } elseif (in_array('bower.json', $changed_files)) {
             //changes on npm, run npm install
@@ -291,7 +304,7 @@ if(is_dir($p[$project_name]['git_dir'])) {
     }
 
     //cd to the working dir
-    chdir($p[$project_name]['branches'][$branch_name]);
+    chdir($working_dir);
 
 
     if($run_npm && $run_bower && $run_gulp) {
