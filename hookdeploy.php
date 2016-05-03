@@ -29,7 +29,7 @@ $p = [
         ],
         'releases' => [
             'deploy' => false,
-            'prefix' => 'release/',
+            'name_regex' => '/^release\/v?[0-9]+\.[0-9]+(?:\.[0-9]+)?$/i',
             'path' => '/var/www/myproject-latest'
         ],
         'run_composer' => false,
@@ -45,6 +45,7 @@ $run_custom = false;
 $run_composer = false;
 $run_npm = false;
 $run_bower = false;
+$o = [];
 
 //test deploy from command line
 if(!empty($argv)) {
@@ -139,12 +140,14 @@ if(!isset($p[$project_name]['branches'][$branch_name]) && !$p[$project_name]['re
 }
 
 $working_dir = $p[$project_name]['branches'][$branch_name];
-$releaseCheck = strpos($branch_name, $p[$project_name]['releases']['prefix']);
-if($p[$project_name]['releases']['deploy'] && $releaseCheck === false) {
+$releaseCheck = preg_match($p[$project_name]['releases']['name_regex'], $branch_name);
+if($p[$project_name]['releases']['deploy'] && !$releaseCheck) {
     die('No config for this branch: ' . $branch_name);
-} elseif($p[$project_name]['releases']['deploy'] && $releaseCheck === 0) {
+} elseif($p[$project_name]['releases']['deploy'] && $releaseCheck) {
     $working_dir = $p[$project_name]['releases']['path'];
 }
+
+$o[] = 'working-dir: ' . $working_dir;
 
 //check necessary directories and permissions
 if($g['create_dirs']) {
@@ -209,8 +212,6 @@ if(!empty($g['hookdeploy_settings_dir'])) {
 //use an specific private key
 //make sure you have git v2.3.0 or newer
 putenv("GIT_SSH_COMMAND=ssh -i {$p[$project_name]['private_key']}");
-
-$o = [];
 
 //clone if git dir does not exist
 if(!is_dir($p[$project_name]['git_dir'])) {
