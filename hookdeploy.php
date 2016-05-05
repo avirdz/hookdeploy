@@ -135,16 +135,20 @@ if(!isset($p[$project_name])) {
     die('No config for this project: ' . $project_name);
 }
 
-if(!isset($p[$project_name]['branches'][$branch_name]) && !$p[$project_name]['releases']['deploy']) {
-    die('No config for this branch: ' . $branch_name);
-}
-
 $working_dir = $p[$project_name]['branches'][$branch_name];
-$releaseCheck = preg_match($p[$project_name]['releases']['name_regex'], $branch_name);
-if($p[$project_name]['releases']['deploy'] && !$releaseCheck) {
+if($p[$project_name]['releases']['deploy']) {
+    $releaseCheck = preg_match($p[$project_name]['releases']['name_regex'], $branch_name);
+
+    if(!$releaseCheck && !isset($p[$project_name]['branches'][$branch_name])) {
+        die('No config for this branch: ' . $branch_name);
+    } else if($releaseCheck) {
+        $working_dir = $p[$project_name]['releases']['path'];
+    } else if(!isset($p[$project_name]['branches'][$branch_name])) {
+        die('No config for this branch: ' . $branch_name);
+    }
+
+} else if(!isset($p[$project_name]['branches'][$branch_name])) {
     die('No config for this branch: ' . $branch_name);
-} elseif($p[$project_name]['releases']['deploy'] && $releaseCheck) {
-    $working_dir = $p[$project_name]['releases']['path'];
 }
 
 $o[] = 'working-dir: ' . $working_dir;
