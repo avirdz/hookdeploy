@@ -183,10 +183,6 @@ if($g['create_dirs']) {
         }
     }
 } else {
-    if(!is_dir($p[$project_name]['git_dir'])) {
-        die('git_dir does not exist: ' . $p[$project_name]['git_dir']);
-    }
-
     if(!is_dir($working_dir)) {
         die("the directory for branch {$branch_name} does not exist: " . $working_dir);
     }
