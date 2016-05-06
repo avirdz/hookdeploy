@@ -35,9 +35,8 @@ $p = [
         'run_composer' => false,
         'run_npm' => false,
         'run_bower' => false,
-        'run_gulp' => false, //always run gulp in order to propagate the public files
+        'run_gulp' => false,
         'gulp_task' => 'live',
-        'bower_task' => 'live_bower', //when bower is modified run a combination bower install and gulp live task
     ],
 ];
 
