@@ -1,14 +1,12 @@
 # hookdeploy
 
-hookdeploy is a php deployment script for bitbucket git repositories.
+hookdeploy is a php deployment script for bitbucket git repositories. It also has a basic integration with composer, npm, bower and gulp.
 
 ### Install with composer
 
 ```sh
 composer create-project avirdz/hookdeploy
 ```
-
-Then remove .git dir.
 
 ### Requirements
 
@@ -24,7 +22,6 @@ Then remove .git dir.
 - Fix NPM permissions: https://docs.npmjs.com/getting-started/fixing-npm-permissions
 
 ### Global Config
-
 
 Key      | Value     | Description
 -------- | --------  | -------------
@@ -52,7 +49,12 @@ full-project-name | (array) | replace the key name by your full project name |
 - private_key | (string) |  full path for ssh private key
 - git_dir    | (string)  | full path for the local clone repository
 - remote_repository | (string) | remote repository path ssh format
-- branches| (array) | branches to be deployed, ['branch_name' => 'deployment path']
+- branches| (array) | branches to be deployed,
+|||`'branch_name' => 'deployment path'` common environment branches, like master (production) , develop (development)
+- releases | (array) | releases to be deployed,
+|||`'deploy' => false,  ` deploy releases
+|||`'name_regex' => '/^release\/v?[0-9]+\.[0-9]+(?:\.[0-9]+)?$/i', `  regex for releases name
+|||`'path' => '/var/www/myproject-latest'` path to deploy the latest release
 - run_composer | (bool) default: false | run composer install command
 - run_npm | (bool) default: false | run npm install command
 - run_bower | (bool) default: false | run bower install command
@@ -64,7 +66,7 @@ full-project-name | (array) | replace the key name by your full project name |
 
 Test your private key and add bitbucket to known_hosts
 ```sh
-ssh -i ~/.ssh/myPrivateKey -T git@bitbucket.org
+sudo -Hu www-data ssh -i ~/.ssh/myPrivateKey -T git@bitbucket.org
 ```
 #### Testing via browser
 This is the best way to test your setup.
@@ -76,42 +78,14 @@ Enter the URL to hookdeploy script on the browser, use the following GET paramet
 Key      | Value     | Description
 -------- | --------  | -------------
 run | empty\|composer\|npm\|bower\|gulp |   this param is required to be set in order to run the http test, you can set any of the other commands to test, for example: composer (this run the composer install command), you can separate by a comma or any other separator to run multiple commands, example: composer,npm|
-bg | any value | this param is required is you want to disable silent mode on commands, and activate debug output to get more information, if not present commands run normally (background and silent mode)
-r | full project name | project to test, full project name from the \$p config, slash must be encode with "%2F", is this value is not present the script takes the first project from your \$p config
-b | branch name | branch to test, if not present the script takes the first branch from your project config
+bg | any value | this param is required if you want to disable silent mode on commands and activate debug output to get more information, commands run normally (background and silent mode) if this param is not present
+r | full project name | project to test, full project name from the \$p config, slash must be encode with "%2F", the script takes the first project from your \$p config if this param is not present
+b | branch name | branch to test, the script takes the first branch from your project config if this param is not present
 
 ##### Sample test URL
+
 ```sh
 http://my-host/hookdeploy.php?run=composer&bg=1&r=myuser%2Fmyproject&b=develop
-```
-
-I recommend to  test your setup via browser because you can check if something is wrong.
-
-####Testing by command line
-
-If you want to test the script, run it emulating www-data, test with the provided payload.json file (you need to configure the full-name key by your project full name)
-```sh
-sudo -Hu www-data php hookdeploy.php test
-```
-
-Your custom payload.json
-```sh
-sudo -Hu www-data php hookdeploy.php test ~/mypayload.json
-```
-
-Run the script with your provided config, this runs your first project and the first branch configured on the $p var
-```sh
-sudo -Hu www-data php hookdeploy.php run
-```
-
-If you want to run a different project use this.
-```sh
-sudo -Hu www-data php hookdeploy.php run myuser/myotherproject
-```
-
-If you want to run with different branch.
-```sh
-sudo -Hu www-data php hookdeploy.php run myuser/myproject develop
 ```
 
 License
