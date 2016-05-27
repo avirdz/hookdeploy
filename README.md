@@ -34,8 +34,7 @@ bower | (string) default: bower | bower command (*)
 create_dirs | (bool) default: false| automatically create all necessary dirs, needs write permissions on different directories
 hookdeploy_settings_dir | (string) default: /var/www/.hookdeploy_settings | composer, npm, and bower cache folders are created here.
 http_test | (bool) default: false | if true you can make tests on your browser by accessing directly to the script, ip restriction must be disable
-bg_command | (string) default: /dev/null 2>&1  | part of the command to run all other commands in background
-bg_multiple | (string) default: /dev/null 2>&1 &  | run multiple commands in background
+bg_command | (string) default: /dev/null 2>&1 &  | part of the command to run all other commands in background
 quiet | (string) default: -q | argument to run composer, npm and bower in silent mode
 debug | (string) default: null | argument to run composer, npm and bower in debug mode, this argument is enabled via browser test
 
@@ -60,7 +59,19 @@ full-project-name | (array) | replace the key name by your full project name |
 - run_bower | (bool) default: false | run bower install command
 - run_gulp  | (bool) default: false | run gulp task command
 - gulp_task  | (string) default: live | name of the task to run
+- valid_gulp_tasks | (array) | valid gulp tasks to run via commit message 
 
+### Run gulp tasks via commit message
+You can run gulp tasks by a commit message, just add to your last commit message the following format:
+```sh
+#gulp <task>#
+```
+Replace &lt;task&gt; for a valid task on the project config valid_gulp_tasks key.
+
+Commit example:
+```sh
+Removed some unused files #gulp clear:all#
+```
 
 ### Testing
 
