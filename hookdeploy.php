@@ -1,44 +1,12 @@
 <?php
 
-//global config
-$g = [
-    'git' => 'git',
-    'composer' => 'composer',
-    'composer_home' => '/usr/local/bin/', //composer home env var
-    'npm' => 'npm',
-    'gulp' => 'gulp',
-    'bower' => 'bower',
-    'create_dirs' => false, //true: create necessary dirs with mkdir, false you need to create them manually.
-    'hookdeploy_settings_dir' => '/var/www/.hookdeploy_settings',
-    'http_test' => false, //can make a test request from the browser, ip restriction must be disabled
-    'bg_command' => ' > /dev/null 2>&1',
-    'bg_multiple' => ' > /dev/null 2>&1 &',
-    'quiet' => ' -q',
-    'debug' => null,
-];
+$config_file = __DIR__ . '/config.php';
 
-//project config
-$p = [
-    'full-project-name' => [
-        'private_key' => '~/.ssh/myPrivateKey',
-        'git_dir' => '~/bitbucket_repos/myProject',
-        'remote_repository' => 'git@bitbucket.org:myuser/myproject.git',
-        'branches' => [
-            'master' => '/var/www/myproject-production',
-            'develop' => '/var/www/myproject-dev',
-        ],
-        'releases' => [
-            'deploy' => false,
-            'name_regex' => '/^release\/v?[0-9]+\.[0-9]+(?:\.[0-9]+)?$/i',
-            'path' => '/var/www/myproject-latest'
-        ],
-        'run_composer' => false,
-        'run_npm' => false,
-        'run_bower' => false,
-        'run_gulp' => false,
-        'gulp_task' => 'live',
-    ],
-];
+if(file_exists($config_file)) {
+    include($config_file);
+} else {
+    die('config.php file does not exist');
+}
 
 $run_custom = false;
 $run_composer = false;
@@ -46,40 +14,7 @@ $run_npm = false;
 $run_bower = false;
 $o = [];
 
-//test deploy from command line
-if(!empty($argv)) {
-    if(isset($argv[1]) && $argv[1] == 'test') {
-        if(isset($argv[2])) {
-            if(!is_file($argv[2])) {
-                die('Invalid file: ' . $argv[2]);
-            }
-            $payload = json_decode(file_get_contents($argv[2]));
-        } else {
-            $payload = json_decode(file_get_contents(__DIR__ . '/payload.json'));
-        }
-        $run_custom = true;
-    } elseif(isset($argv[1]) && $argv[1] == 'run') {
-        $payload = json_decode(file_get_contents(__DIR__ . '/payload.json'));
-        if(isset($argv[2])) {
-            $payload->push->changes[0]->new->repository->full_name = $argv[2];
-        } else {
-            $projects = array_keys($p);
-            $payload->push->changes[0]->new->repository->full_name = $projects[0];
-        }
-
-        if(isset($argv[3])) {
-            $payload->push->changes[0]->new->name = $argv[3];
-        } else {
-            if(isset($p[$payload->push->changes[0]->new->repository->full_name])) {
-                $branches_list = array_keys($p[$payload->push->changes[0]->new->repository->full_name]['branches']);
-                $payload->push->changes[0]->new->name = $branches_list[0];
-            }
-        }
-        $run_custom = true;
-    }
-
-//test deploy from browser
-} elseif(isset($_GET['run']) && $g['http_test']) {
+if(isset($_GET['run']) && $g['http_test']) {
     $payload = json_decode(file_get_contents(__DIR__ . '/payload.json'));
     if(isset($_GET['r'])) {
         $payload->push->changes[0]->new->repository->full_name = $_GET['r'];
@@ -103,7 +38,6 @@ if(!empty($argv)) {
     $run_bower = strpos($_GET['run'], 'bower') === false ? false : true;
     if(isset($_GET['bg'])) {
         $g['bg_command'] = ' 2>&1';
-        $g['bg_multiple'] = ' 2>&1 &';
         $g['quiet'] = null;
         $g['debug'] = ' --verbose';
     }
@@ -238,6 +172,11 @@ if(is_dir($p[$project_name]['git_dir'])) {
                 //it might be truncated by bitbucket webhook
                 $o[] = 'changed files: ' . PHP_EOL . trim($changes);
             }
+        } else if($releaseCheck) {
+            //this is the first time a release is pushed, run all the commands
+            $run_composer = true;
+            $run_npm = true;
+            $run_bower = true;
         }
     }
 
@@ -290,6 +229,19 @@ if(is_dir($p[$project_name]['git_dir'])) {
     //run always in order to propagate public files
     $run_gulp = $p[$project_name]['run_gulp'];
 
+    //check for gulp commands
+    $run_this_gulp_task = null;
+    if($run_gulp && !empty($p[$project_name]['valid_gulp_tasks'])) {
+        $last_commit = shell_exec("{$g['git']} log -1 --pretty=%B 2>&1");
+        $matches = [];
+        if(preg_match('/\#gulp ([^\#]*)\#/im', $last_commit, $matches)) {
+            //eval the first one
+            if(isset($matches[1]) && in_array($matches[1], $p[$project_name]['valid_gulp_tasks'])) {
+                $run_this_gulp_task = "{$g['gulp']} {$matches[1]} && ";
+            }
+        }
+    }
+
     //check combinations of changes
     //1. npm install, 2. bower install, 3. gulp [task]
 
@@ -308,28 +260,33 @@ if(is_dir($p[$project_name]['git_dir'])) {
 
 
     if($run_npm && $run_bower && $run_gulp) {
-        $o[] = "running background command: ({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']})";
-        $o[] = shell_exec("({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_multiple']}");
+        $o[] = "running background command: ({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['bower']} install{$g['quiet']}{$g['debug']} && {$run_this_gulp_task}{$g['gulp']} {$p[$project_name]['gulp_task']})";
+        $o[] = shell_exec("({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['bower']} install{$g['quiet']}{$g['debug']} && {$run_this_gulp_task}{$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_command']}");
     } else {
         if($run_npm) {
             if($run_gulp) {
-                $o[] = "running background command: ({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']})";
-                $o[] = shell_exec("({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_multiple']}");
+                $o[] = "running background command: ({$g['npm']} install{$g['quiet']}{$g['debug']} && {$run_this_gulp_task}{$g['gulp']} {$p[$project_name]['gulp_task']})";
+                $o[] = shell_exec("({$g['npm']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$run_this_gulp_task}{$p[$project_name]['gulp_task']}){$g['bg_command']}");
             } else {
                 $o[] = "running background command: {$g['npm']} install{$g['quiet']}{$g['debug']}";
                 $o[] = shell_exec("{$g['npm']} install{$g['quiet']}{$g['debug']}{$g['bg_command']}");
             }
         } elseif($run_bower) {
             if($run_gulp) {
-                $o[] = "running background command: ({$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']})";
-                $o[] = shell_exec("({$g['bower']} install{$g['quiet']}{$g['debug']} && {$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_multiple']}");
+                $o[] = "running background command: ({$g['bower']} install{$g['quiet']}{$g['debug']} && {$run_this_gulp_task}{$g['gulp']} {$p[$project_name]['gulp_task']})";
+                $o[] = shell_exec("({$g['bower']} install{$g['quiet']}{$g['debug']} && {$run_this_gulp_task}{$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_command']}");
             } else {
                 $o[] = "running background command: {$g['bower']} install{$g['quiet']}{$g['debug']}";
                 $o[] = shell_exec("{$g['bower']} install{$g['quiet']}{$g['debug']}{$g['bg_command']}");
             }
         } elseif($run_gulp) {
-            $o[] = "running background command: {$g['gulp']} {$p[$project_name]['gulp_task']})";
-            $o[] = shell_exec("{$g['gulp']} {$p[$project_name]['gulp_task']}{$g['bg_command']}");
+            if(!empty($run_this_gulp_task)) {
+                $o[] = "running background command: ({$run_this_gulp_task}{$g['gulp']} {$p[$project_name]['gulp_task']})";
+                $o[] = shell_exec("({$run_this_gulp_task}{$g['gulp']} {$p[$project_name]['gulp_task']}){$g['bg_command']}");
+            } else {
+                $o[] = "running background command: {$g['gulp']} {$p[$project_name]['gulp_task']})";
+                $o[] = shell_exec("{$g['gulp']} {$p[$project_name]['gulp_task']}{$g['bg_command']}");
+            }
         }
     }
 }
