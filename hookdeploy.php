@@ -144,7 +144,7 @@ if(!empty($g['hookdeploy_settings_dir'])) {
 
 //use an specific private key
 //make sure you have git v2.3.0 or newer
-putenv("GIT_SSH_COMMAND=ssh -i {$p[$project_name]['private_key']}");
+putenv("GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no -i {$p[$project_name]['private_key']}");
 
 //clone if git dir does not exist
 if(!is_dir($p[$project_name]['git_dir'])) {
