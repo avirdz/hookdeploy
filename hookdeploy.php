@@ -17,17 +17,17 @@ $o = [];
 if(isset($_GET['run']) && $g['http_test']) {
     $payload = json_decode(file_get_contents(__DIR__ . '/payload.json'));
     if(isset($_GET['r'])) {
-        $payload->push->changes[0]->new->repository->full_name = $_GET['r'];
+        $payload->repository->full_name = $_GET['r'];
     } else {
         $projects = array_keys($p);
-        $payload->push->changes[0]->new->repository->full_name = $projects[0];
+        $payload->repository->full_name = $projects[0];
     }
 
     if(isset($_GET['b'])) {
         $payload->push->changes[0]->new->name = $_GET['b'];
     } else {
-        if(isset($p[$payload->push->changes[0]->new->repository->full_name])) {
-            $branches_list = array_keys($p[$payload->push->changes[0]->new->repository->full_name]['branches']);
+        if(isset($p[$payload->repository->full_name])) {
+            $branches_list = array_keys($p[$payload->repository->full_name]['branches']);
             $payload->push->changes[0]->new->name = $branches_list[0];
         }
     }
@@ -62,7 +62,7 @@ if(empty($payload->push->changes[0]->new) || $payload->push->changes[0]->new->ty
     die('No changes on branches');
 }
 
-$project_name = $payload->push->changes[0]->new->repository->full_name;
+$project_name = $payload->repository->full_name;
 $branch_name = $payload->push->changes[0]->new->name;
 if(!isset($p[$project_name])) {
     die('No config for this project: ' . $project_name);
