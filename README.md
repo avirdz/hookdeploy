@@ -23,6 +23,8 @@ composer create-project avirdz/hookdeploy
 
 ### Global Config
 
+Add a new file config.php, copy the content of the file config.example.php and make your changes.
+
 Key      | Value     | Description
 -------- | --------  | -------------
 git      | (string) default: git |  git command (*)
