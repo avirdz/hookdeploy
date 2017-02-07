@@ -185,7 +185,7 @@ if(is_dir($p[$project_name]['git_dir'])) {
         //if vendor dir does not exist, run composer install
         if(!is_dir($working_dir . '/vendor')) {
             $run_composer = true;
-        } elseif (in_array('composer.json', $changed_files)) {
+        } elseif (in_array('composer.json', $changed_files) || in_array('composer.lock', $changed_files)) {
             //changes on composer, run composer install
             $run_composer = true;
         }
